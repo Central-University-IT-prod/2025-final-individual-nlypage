@@ -1,0 +1,30 @@
+settings:
+  parse_mode: html
+  token_env: BOT_TOKEN
+  long_poller:
+    Timeout: 10
+
+commands:
+  /start: Перезапустить бота
+
+buttons:
+  core:hide:
+    unique: core_hide
+    callback_data: core_hide
+    text: '{{ text `hide` }}'
+
+  core:cancel:
+    unique: core_cancel
+    callback_data: core_cancel
+    text: '{{ text `cancel` }}'
+
+  core:back:
+    unique: core_back
+    callback_data: core_back
+    text: '{{ text `back` }}'ы
+
+markups:
+  core:hide:
+    - [ core:hide ]
+  core:back:
+    - [ core:back ]

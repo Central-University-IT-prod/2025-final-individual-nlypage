@@ -1,0 +1,1052 @@
+openapi: 3.0.3
+info:
+  title: PROD Backend 2025 Advertising Platform API
+  version: '1.0.0'
+  description: >
+    API для управления данными клиентов, рекламодателей, рекламными кампаниями,
+    показом объявлений, статистикой и управлением "текущим днём" в системе.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Clients
+    description: 'Управление клиентами: создание и обновление информации о клиентах.'
+  - name: Advertisers
+    description: Управление рекламодателями и ML скорами для определения релевантности.
+  - name: Campaigns
+    description: 'Управление рекламными кампаниями: создание, обновление, удаление и получение списка кампаний.'
+  - name: Ads
+    description: Показ рекламных объявлений клиентам и фиксация кликов.
+  - name: Statistics
+    description: Получение статистики по кампаниям и рекламодателям, а также ежедневной статистики.
+  - name: Time
+    description: Управление текущим днём (эмуляция времени) в системе.
+  - name: Moderation
+    description: Модерация рекламных кампаний.
+  - name: AI
+    description: AI-функции для генерации контента.
+
+paths:
+  # Клиенты
+  /clients/{clientId}:
+    get:
+      tags:
+        - Clients
+      summary: Получение клиента по ID
+      description: Возвращает информацию о клиенте по его ID.
+      operationId: getClientById
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          description: UUID клиента.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Информация о клиенте успешно получена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+  /clients/bulk:
+    post:
+      tags:
+        - Clients
+      summary: Массовое создание/обновление клиентов
+      description: Создаёт новых или обновляет существующих клиентов
+      operationId: upsertClients
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClientUpsert'
+      responses:
+        '201':
+          description: Успешное создание/обновление клиентов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+
+  # Рекламодатели и ML скор
+  /advertisers/{advertiserId}:
+    get:
+      tags:
+        - Advertisers
+      summary: Получение рекламодателя по ID
+      description: Возвращает информацию о рекламодателе по его ID.
+      operationId: getAdvertiserById
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Информация о рекламодателе успешно получена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Advertiser'
+  /advertisers/bulk:
+    post:
+      tags:
+        - Advertisers
+      summary: Массовое создание/обновление рекламодателей
+      description: Создаёт новых или обновляет существующих рекламодателей
+      operationId: upsertAdvertisers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdvertiserUpsert'
+      responses:
+        '201':
+          description: Успешное создание/обновление рекламодателей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Advertiser'
+  /ml-scores:
+    post:
+      tags:
+        - Advertisers
+      summary: Добавление или обновление ML скора
+      description: Добавляет или обновляет ML скор для указанной пары клиент-рекламодатель.
+      operationId: upsertMLScore
+      requestBody:
+        description: Объект с данными ML скора, включая client_id, advertiser_id и значение скора.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MLScore'
+      responses:
+        '200':
+          description: ML скор успешно добавлен или обновлён.
+  # Рекламные кампании
+  /advertisers/{advertiserId}/campaigns:
+    post:
+      tags:
+        - Campaigns
+      summary: Создание рекламной кампании
+      description: Создаёт новую рекламную кампанию для указанного рекламодателя.
+      operationId: createCampaign
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, для которого создаётся кампания.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Объект с данными для создания рекламной кампании.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignCreate'
+      responses:
+        '201':
+          description: Рекламная кампания успешно создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+    get:
+      tags:
+        - Campaigns
+      summary: Получение рекламных кампаний рекламодателя c пагинацией
+      description: Возвращает список рекламных кампаний для указанного рекламодателя с пагинацией.
+      operationId: listCampaigns
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, для которого запрашиваются кампании.
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: size
+          schema:
+            type: integer
+          description: Количество элементов на странице.
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Номер страницы.
+      responses:
+        '200':
+          description: Список рекламных кампаний рекламодателя.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Campaign'
+  /advertisers/{advertiserId}/campaigns/{campaignId}:
+    get:
+      tags: [ Campaigns ]
+      summary: Получение кампании по ID
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, которому принадлежит кампания.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID рекламной кампании, которую необходимо получить.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Кампания успешно получена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+
+    put:
+      tags:
+        - Campaigns
+      summary: Обновление рекламной кампании
+      description: Обновляет разрешённые параметры рекламной кампании до её старта.
+      operationId: updateCampaign
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, которому принадлежит кампания.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID рекламной кампании, которую необходимо обновить.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Объект с обновлёнными данными рекламной кампании.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignUpdate'
+      responses:
+        '200':
+          description: Рекламная кампания успешно обновлена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+    delete:
+      tags:
+        - Campaigns
+      summary: Удаление рекламной кампании
+      description: Удаляет рекламную кампанию рекламодателя по заданному campaignId.
+      operationId: deleteCampaign
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, которому принадлежит кампания.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID рекламной кампании, которую необходимо удалить.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Рекламная кампания успешно удалена.
+  /advertisers/{advertiserId}/campaigns/{campaignId}/image:
+    post:
+      tags:
+        - Campaigns
+      summary: Загрузить/обновить изображение рекламной кампании
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, которому принадлежит кампания.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID рекламной кампании, для которой загружается изображение.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Изображение успешно загружено/обновлено.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  advertiser_id:
+                    type: string
+                    format: uuid
+                  campaign_id:
+                    type: string
+                    format: uuid
+                  image_url:
+                    type: string
+                    format: uri
+    delete:
+      tags:
+        - Campaigns
+      summary: Удалить изображение рекламной кампании
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, которому принадлежит кампания.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID рекламной кампании, для которой запрашивается изображение.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Изображение успешно удалено.
+  # Рекламные объявления и клики
+  /ads:
+    get:
+      tags:
+        - Ads
+      summary: Получение рекламного объявления для клиента
+      description: Возвращает рекламное объявление, подходящее для показа клиенту с учетом таргетинга и ML скора.
+      operationId: getAdForClient
+      parameters:
+        - in: query
+          name: client_id
+          required: true
+          description: UUID клиента, запрашивающего показ объявления.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Рекламное объявление успешно возвращено.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ad'
+  /ads/{adId}/click:
+    post:
+      tags:
+        - Ads
+      summary: Фиксация перехода по рекламному объявлению
+      description: Фиксирует клик (переход) клиента по рекламному объявлению.
+      operationId: recordAdClick
+      parameters:
+        - in: path
+          name: adId
+          required: true
+          description: UUID рекламного объявления (идентификатор кампании), по которому совершен клик.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Объект с информацией о клике, содержащий UUID клиента.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: string
+                  format: uuid
+                  description: UUID клиента, совершившего клик по объявлению.
+              required:
+                - client_id
+      responses:
+        '204':
+          description: Переход по рекламному объявлению успешно зафиксирован.
+  # Статистика
+  /stats/campaigns/{campaignId}:
+    get:
+      tags:
+        - Statistics
+      summary: Получение статистики по рекламной кампании
+      description: Возвращает агрегированную статистику (показы, переходы, затраты и конверсию) для заданной рекламной кампании.
+      operationId: getCampaignStats
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID рекламной кампании, для которой запрашивается статистика.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Статистика по рекламной кампании успешно получена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+  /stats/advertisers/{advertiserId}/campaigns:
+    get:
+      tags:
+        - Statistics
+      summary: Получение агрегированной статистики по всем кампаниям рекламодателя
+      description: Возвращает сводную статистику по всем рекламным кампаниям, принадлежащим заданному рекламодателю.
+      operationId: getAdvertiserCampaignsStats
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, для которого запрашивается статистика.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Агрегированная статистика по всем кампаниям рекламодателя успешно получена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+  /stats/campaigns/{campaignId}/daily:
+    get:
+      tags:
+        - Statistics
+      summary: Получение ежедневной статистики по рекламной кампании
+      description: Возвращает массив ежедневной статистики для указанной рекламной кампании.
+      operationId: getCampaignDailyStats
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID рекламной кампании, для которой запрашивается ежедневная статистика.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ежедневная статистика по рекламной кампании успешно получена.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailyStats'
+  /stats/advertisers/{advertiserId}/campaigns/daily:
+    get:
+      tags:
+        - Statistics
+      summary: Получение ежедневной агрегированной статистики по всем кампаниям рекламодателя
+      description: Возвращает массив ежедневной сводной статистики по всем рекламным кампаниям заданного рекламодателя.
+      operationId: getAdvertiserDailyStats
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя, для которого запрашивается ежедневная статистика по кампаниям.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ежедневная агрегированная статистика успешно получена.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailyStats'
+  # Управление временем
+  /time/advance:
+    post:
+      tags:
+        - Time
+      summary: Установка текущей даты
+      description: Устанавливает текущий день в системе в заданную дату.
+      operationId: advanceDay
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                current_date:
+                  type: integer
+                  format: int32
+                  description: Текущий день (целое число).
+      responses:
+        '200':
+          description: Текущая дата обновлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  current_date:
+                    type: integer
+                    format: int32
+                    description: Текущий день (целое число).
+  # Модерация
+  /moderation/campaigns:
+    get:
+      tags:
+        - Moderation
+      summary: Получение списка кампаний для модерации
+      description: Возвращает список рекламных кампаний, требующих модерации.
+      operationId: listCampaignsForModeration
+      responses:
+        '200':
+          description: Список кампаний успешно получен
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CampaignWithTargeting'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /moderation/campaigns/{campaignId}/approve:
+    post:
+      tags:
+        - Moderation
+      summary: Одобрение рекламной кампании
+      description: Одобряет рекламную кампанию модератором.
+      operationId: approveCampaign
+      parameters:
+        - in: path
+          name: campaignId
+          required: true
+          description: UUID кампании для одобрения
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Кампания успешно одобрена
+        '404':
+          description: Кампания не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  # AI
+  /ai/advertisers/{advertiserId}/generate/ad-text:
+    post:
+      tags:
+        - AI
+      summary: Генерация текста рекламы с помощью AI
+      description: Генерирует текст рекламы на основе заголовка и дополнительной информации.
+      operationId: generateAdText
+      parameters:
+        - in: path
+          name: advertiserId
+          required: true
+          description: UUID рекламодателя
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateAdTextRequest'
+      responses:
+        '200':
+          description: Текст рекламы успешно сгенерирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateAdTextResponse'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    # --- Клиенты ---
+    Client:
+      type: object
+      description: Объект, представляющий клиента системы.
+      properties:
+        client_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор клиента (UUID).
+        login:
+          type: string
+          description: Логин клиента в системе.
+        age:
+          type: integer
+          description: Возраст клиента.
+        location:
+          type: string
+          description: Локация клиента (город, регион или район).
+        gender:
+          type: string
+          enum: [ MALE, FEMALE ]
+          description: Пол клиента (MALE или FEMALE).
+      required:
+        - client_id
+        - login
+        - age
+        - location
+        - gender
+    # --- Рекламодатели ---
+    Advertiser:
+      type: object
+      description: Объект, представляющий рекламодателя.
+      properties:
+        advertiser_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор рекламодателя (UUID).
+        name:
+          type: string
+          description: Название рекламодателя.
+      required:
+        - advertiser_id
+        - name
+    # --- ML скор ---
+    MLScore:
+      type: object
+      description: Объект, представляющий ML скор для пары клиент-рекламодатель.
+      properties:
+        client_id:
+          type: string
+          format: uuid
+          description: UUID клиента для которого рассчитывается ML скор.
+        advertiser_id:
+          type: string
+          format: uuid
+          description: UUID рекламодателя для которого рассчитывается ML скор.
+        score:
+          type: integer
+          description: Целочисленное значение ML скора; чем больше – тем выше релевантность.
+      required:
+        - client_id
+        - advertiser_id
+        - score
+    # --- Кампании ---
+    Campaign:
+      type: object
+      description: Объект, представляющий рекламную кампанию.
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор рекламной кампании (UUID).
+        advertiser_id:
+          type: string
+          format: uuid
+          description: UUID рекламодателя, которому принадлежит кампания.
+        impressions_limit:
+          type: integer
+          description: Лимит показов рекламного объявления (фиксируется до старта кампании).
+        clicks_limit:
+          type: integer
+          description: Лимит переходов (кликов) по рекламному объявлению (фиксируется до старта кампании).
+        cost_per_impression:
+          type: number
+          format: float
+          description: Стоимость одного показа рекламного объявления.
+        cost_per_click:
+          type: number
+          format: float
+          description: Стоимость одного перехода (клика) по рекламному объявлению.
+        ad_title:
+          type: string
+          description: Название рекламного объявления.
+        ad_text:
+          type: string
+          description: Текст рекламного объявления.
+        start_date:
+          type: integer
+          format: int32
+          description: День старта показа рекламного объявления (включительно).
+        end_date:
+          type: integer
+          format: int32
+          description: День окончания показа рекламного объявления (включительно).
+        targeting:
+          $ref: '#/components/schemas/Targeting'
+      required:
+        - campaign_id
+        - advertiser_id
+        - impressions_limit
+        - clicks_limit
+        - cost_per_impression
+        - cost_per_click
+        - ad_title
+        - ad_text
+        - start_date
+        - end_date
+        - targeting
+    CampaignCreate:
+      type: object
+      description: Объект для создания новой рекламной кампании.
+      properties:
+        impressions_limit:
+          type: integer
+          description: Задаёт лимит показов для рекламного объявления.
+        clicks_limit:
+          type: integer
+          description: Задаёт лимит переходов для рекламного объявления.
+        cost_per_impression:
+          type: number
+          format: float
+          description: Стоимость одного показа объявления.
+        cost_per_click:
+          type: number
+          format: float
+          description: Стоимость одного перехода (клика) по объявлению.
+        ad_title:
+          type: string
+          description: Название рекламного объявления.
+        ad_text:
+          type: string
+          description: Текст рекламного объявления.
+        start_date:
+          type: integer
+          format: int32
+          description: День начала показа рекламного объявления (включительно).
+        end_date:
+          type: integer
+          format: int32
+          description: День окончания показа рекламного объявления (включительно).
+        targeting:
+          $ref: '#/components/schemas/Targeting'
+      required:
+        - impressions_limit
+        - clicks_limit
+        - cost_per_impression
+        - cost_per_click
+        - ad_title
+        - ad_text
+        - start_date
+        - end_date
+    CampaignUpdate:
+      type: object
+      description: Объект для обновления параметров кампании, которые разрешено изменять до старта кампании.
+      properties:
+        impressions_limit:
+          type: integer
+          description: Задаёт лимит показов для рекламного объявления.
+        clicks_limit:
+          type: integer
+          description: Задаёт лимит переходов для рекламного объявления.
+        cost_per_impression:
+          type: number
+          format: float
+          description: Новая стоимость одного показа объявления.
+        cost_per_click:
+          type: number
+          format: float
+          description: Новая стоимость одного перехода (клика) по объявлению.
+        ad_title:
+          type: string
+          description: Новое название рекламного объявления.
+        ad_text:
+          type: string
+          description: Новый текст рекламного объявления.
+        start_date:
+          type: integer
+          format: int32
+          description: День начала показа рекламного объявления (включительно).
+        end_date:
+          type: integer
+          format: int32
+          description: День окончания показа рекламного объявления (включительно).
+        targeting:
+          $ref: '#/components/schemas/Targeting'
+          description: Новые параметры таргетирования для рекламной кампании.
+    Targeting:
+      type: object
+      description: Объект, описывающий настройки таргетирования для рекламной кампании.
+      properties:
+        gender:
+          type: string
+          enum: [ MALE, FEMALE, ALL ]
+          nullable: true
+          description: Пол аудитории для показа объявления (MALE, FEMALE или ALL).
+        age_from:
+          type: integer
+          nullable: true
+          description: Минимальный возраст аудитории (включительно) для показа объявления.
+        age_to:
+          type: integer
+          nullable: true
+          description: Максимальный возраст аудитории (включительно) для показа объявления.
+        location:
+          type: string
+          nullable: true
+          description: Локация аудитории, для которой будет показано объявление.
+    # --- Рекламное объявление ---
+    Ad:
+      type: object
+      description: Объект, представляющий рекламное объявление, которое показывается клиенту.
+      properties:
+        ad_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор рекламного объявления (всегда совпадает с id рекламной кампании).
+        ad_title:
+          type: string
+          description: Название рекламного объявления.
+        ad_text:
+          type: string
+          description: Текст рекламного объявления, который видит клиент.
+        advertiser_id:
+          type: string
+          format: uuid
+          description: UUID рекламодателя, которому принадлежит объявление.
+      required:
+        - ad_id
+        - ad_title
+        - ad_text
+        - advertiser_id
+    # --- Статистика ---
+    Stats:
+      type: object
+      description: Объект, содержащий агрегированную статистику для рекламной кампании или рекламодателя.
+      properties:
+        impressions_count:
+          type: integer
+          description: Общее количество уникальных показов рекламного объявления.
+        clicks_count:
+          type: integer
+          description: Общее количество уникальных переходов (кликов) по рекламному объявлению.
+        conversion:
+          type: number
+          format: float
+          description: Коэффициент конверсии, вычисляемый как (clicks_count / impressions_count * 100) в процентах.
+        spent_impressions:
+          type: number
+          format: float
+          description: Сумма денег, потраченная на показы рекламного объявления.
+        spent_clicks:
+          type: number
+          format: float
+          description: Сумма денег, потраченная на переходы (клики) по рекламному объявлению.
+        spent_total:
+          type: number
+          format: float
+          description: Общая сумма денег, потраченная на кампанию (показы и клики).
+      required:
+        - impressions_count
+        - clicks_count
+        - conversion
+        - spent_impressions
+        - spent_clicks
+        - spent_total
+    DailyStats:
+      allOf:
+        - $ref: '#/components/schemas/Stats'
+        - type: object
+          description: Объект, представляющий ежедневную статистику с указанием дня.
+          properties:
+            date:
+              type: integer
+              format: int32
+              description: День, за который была собрана статистика.
+          required:
+            - date
+    ClientUpsert:
+      type: object
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        login:
+          type: string
+        age:
+          type: integer
+        location:
+          type: string
+        gender:
+          type: string
+          enum: [ MALE, FEMALE ]
+      required: [ client_id, login, age, location, gender ]
+
+    AdvertiserUpsert:
+      type: object
+      properties:
+        advertiser_id:
+          type: string
+          format: uuid
+          description: UUID рекламодателя.
+        name:
+          type: string
+      required: [ advertiser_id, name ]
+
+    CampaignWithTargeting:
+      type: object
+      description: Объект рекламной кампании с информацией о таргетинге
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор кампании
+        advertiser_id:
+          type: string
+          format: uuid
+          description: Идентификатор рекламодателя
+        impressions_limit:
+          type: integer
+          format: int64
+          description: Максимальное количество показов
+        clicks_limit:
+          type: integer
+          format: int64
+          description: Максимальное количество кликов
+        cost_per_impression:
+          type: number
+          format: double
+          description: Стоимость за показ
+        cost_per_click:
+          type: number
+          format: double
+          description: Стоимость за клик
+        ad_title:
+          type: string
+          description: Заголовок рекламы
+        ad_text:
+          type: string
+          description: Текст рекламы
+        image_url:
+          type: string
+          description: URL изображения
+        start_date:
+          type: integer
+          format: int64
+          description: Дата начала кампании
+        end_date:
+          type: integer
+          format: int64
+          description: Дата окончания кампании
+        moderated:
+          type: boolean
+          description: Флаг модерации
+        targeting:
+          type: object
+          description: Параметры таргетинга
+          properties:
+            gender:
+              type: string
+              nullable: true
+              description: Пол целевой аудитории
+            age_from:
+              type: integer
+              nullable: true
+              description: Минимальный возраст
+            age_to:
+              type: integer
+              nullable: true
+              description: Максимальный возраст
+            location:
+              type: string
+              nullable: true
+              description: Географическое расположение
+
+    GenerateAdTextRequest:
+      type: object
+      description: Запрос на генерацию текста рекламы
+      required:
+        - ad_title
+      properties:
+        ad_title:
+          type: string
+          description: Заголовок рекламы
+        additional_info:
+          type: string
+          description: Дополнительная информация для генерации
+
+    GenerateAdTextResponse:
+      type: object
+      description: Ответ с сгенерированным текстом рекламы
+      required:
+        - ad_text
+      properties:
+        ad_text:
+          type: string
+          description: Сгенерированный текст рекламы
+
+    Error:
+      type: object
+      description: Объект ошибки
+      properties:
+        code:
+          type: integer
+          description: Код ошибки
+        message:
+          type: string
+          description: Сообщение об ошибке

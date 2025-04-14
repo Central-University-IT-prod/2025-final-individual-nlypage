@@ -1,0 +1,52 @@
+service:
+  database:
+    host: 'database'
+    user: 'user'
+    password: 'password'
+    port: 5432
+    name: 'db'
+    ssl-mode: 'disable'
+
+  redis:
+    host: 'redis'
+    password: 'password'
+    port: 6380
+
+  clickhouse:
+    host: 'clickhouse'
+    port: 9000
+    database: 'advertising'
+    username: 'default'
+    password: 'password'
+
+  gigachat:
+    auth-key: 'REDACTED'
+
+  minio:
+    endpoint: 'minio:9000'
+    http-endpoint: 'localhost:9002'
+    access-key: 'root'
+    secret-key: 'password'
+    bucket: 'ads-images'
+    use-ssl: false
+
+  bot:
+    token: 'REDACTED'
+
+  backend:
+    port: 8080
+    settings:
+      campaign-moderation: false # включить/отключить модерацию рекламных кампаний
+      ad-scoring:
+        interval: 5s # DEPRECATED: интервал обновления скоринга рекламных объявлений
+        weights: # веса для расчета оценки рекламных объявлений
+          profit: 0.53 # прибыль
+          relevance: 0.23 # релевантность
+          performance: 0.18 # выполнение целей рекламных объявлений
+
+settings:
+  timezone: 'Europe/Moscow'
+  debug: false # включить/отключить режим отладки
+  logger:
+    log-to-file: true
+    logs-dir: 'logs'
